@@ -58,3 +58,34 @@ try:
     print('Host cadastrado com sucesso:', create_host)
 except Exception as err:
     print(f'Falha ao cadastrar o host: {err}')
+
+
+
+
+import paramiko
+
+# Configurações do servidor
+hostname = 'seu_servidor.com'
+port = 22
+username = 'seu_usuario'
+password = 'sua_senha'
+
+# Cria um cliente SSH
+client = paramiko.SSHClient()
+client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+try:
+    # Conecta ao servidor
+    client.connect(hostname, port, username, password)
+    print("Conexão estabelecida com sucesso!")
+
+    # Executa um comando no servidor
+    stdin, stdout, stderr = client.exec_command('ls -l')
+    print(stdout.read().decode())
+
+finally:
+    # Fecha a conexão
+    client.close()
+    print("Conexão encerrada.")
+
+
