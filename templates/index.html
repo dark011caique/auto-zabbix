@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cadastro de Host - Zabbix</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet" />
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -18,19 +19,49 @@
         }
         .container {
             background: white;
-            padding: 20px;
+            padding: 30px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            width: 400px;
         }
         h1 {
             margin-bottom: 20px;
+            text-align: center;
         }
         form {
             display: flex;
             flex-direction: column;
         }
-        label, input {
+        label {
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
             margin-bottom: 10px;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .selected-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 5px;
+        }
+        .item-tag {
+            background-color: #007bff;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+        }
+        .item-tag button {
+            background: none;
+            border: none;
+            color: white;
+            margin-left: 5px;
+            cursor: pointer;
         }
         button {
             padding: 10px;
@@ -51,16 +82,115 @@
         <form action="/add_host" method="post">
             <label for="hostname">Nome do Host:</label>
             <input type="text" id="hostname" name="hostname" required>
+            
+            <label for="visible_name">Nome Visível:</label>
+            <input type="text" id="visible_name" name="visible_name">
+            
             <label for="ip">Endereço IP:</label>
             <input type="text" id="ip" name="ip" required>
+            
+            <label for="group">Grupo:</label>
+            <select id="group" name="group[]" multiple="multiple" required>
+                <option value="2">Grupo 2</option>
+                <option value="7">Grupo 7</option>
+            </select>
+            <div class="selected-items" id="selected-groups"></div>
+            
+            <label for="interface">Interface:</label>
+            <select id="interface" name="interface" required>
+                <option value="1">Agent</option>
+                <option value="2">SNMP</option>
+            </select>
+            
+            <label for="description">Descrição (opcional):</label>
+            <input type="text" id="description" name="description">
+            
+            <label for="proxy">Proxy (opcional):</label>
+            <select id="proxy" name="proxy" required>
+                <option value="1">Agent</option>
+                <option value="10">zabbx-proxy</option>
+            </select>
+            
             <label for="template">Número do Template:</label>
-            <input type="text" id="template" name="template" required>
+            <select id="template" name="template[]" multiple="multiple" required>
+                <option value="101">banco de dados</option>
+                <option value="102">Template 102</option>
+                <option value="103">Template 103</option>
+            </select>
+            <div class="selected-items" id="selected-templates"></div>
+            
             <label for="macro_user">Macro USER_ID (opcional):</label>
             <input type="text" id="macro_user" name="macro_user">
+            
             <label for="macro_password">Macro PASSWORD (opcional):</label>
             <input type="text" id="macro_password" name="macro_password">
+            
+            <!-- Novo formulário ODBC (inicialmente oculto) -->
+            <div id="odbc-form" style="display: none; padding: 20px;">
+                <label for="odbc_description" style="display: block; margin-bottom: 5px;">Descrição do ODBC:</label>
+                <input type="text" id="odbc_description" name="odbc_description" placeholder="Descrição do ODBC" required style="width: 100%; padding: 8px; margin-bottom: 10px;">
+            
+                <label for="odbc_server" style="display: block; margin-bottom: 5px;">Servidor do ODBC:</label>
+                <input type="text" id="odbc_server" name="odbc_server" placeholder="Exemplo: 127.0.0.1" required style="width: 100%; padding: 8px; margin-bottom: 10px;">
+            
+                <label for="odbc_database" style="display: block; margin-bottom: 5px;">Banco de Dados do ODBC:</label>
+                <input type="text" id="odbc_database" name="odbc_database" placeholder="Exemplo: zabbix_proxy2" required style="width: 100%; padding: 8px; margin-bottom: 10px;">
+            
+                <label for="odbc_user" style="display: block; margin-bottom: 5px;">Usuário do ODBC:</label>
+                <input type="text" id="odbc_user" name="odbc_user" placeholder="Exemplo: zabbix" required style="width: 100%; padding: 8px; margin-bottom: 10px;">
+            
+                <label for="odbc_password" style="display: block; margin-bottom: 5px;">Senha do ODBC:</label>
+                <input type="password" id="odbc_password" name="odbc_password" placeholder="Senha do ODBC" required style="width: 100%; padding: 8px; margin-bottom: 10px;">
+            
+                <label for="odbc_port" style="display: block; margin-bottom: 5px;">Porta do ODBC:</label>
+                <input type="text" id="odbc_port" name="odbc_port" placeholder="Exemplo: 3306" required style="width: 100%; padding: 8px; margin-bottom: 10px;">
+            </div>
+            
+            
+            
             <button type="submit">Cadastrar Host</button>
         </form>
     </div>
+    
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('#template, #group').select2({
+                placeholder: "Selecione",
+                allowClear: true,
+                width: '100%'
+            }).on('change', function() {
+                updateSelectedItems($(this).attr('id'));
+                toggleOdbcForm(); // Verifica se deve exibir o formulário ODBC
+            });
+
+            // Função para mostrar ou ocultar o formulário de ODBC
+            function toggleOdbcForm() {
+                const templateIds = $('#template').val();
+                if (templateIds && templateIds.includes("101")) { // Se o template "banco de dados" for selecionado
+                    $('#odbc-form').show();
+                } else {
+                    $('#odbc-form').hide();
+                }
+            }
+
+            // Atualiza os itens selecionados e exibe as tags
+            function updateSelectedItems(type) {
+                let selectedItems = $('#' + type).val() || [];
+                let container = $('#selected-' + type);
+                container.empty();
+                selectedItems.forEach(item => {
+                    let tag = $('<div class="item-tag"></div>').text($('#' + type + ' option[value="' + item + '"]').text());
+                    let removeButton = $('<button type="button">×</button>').click(function() {
+                        let newSelection = selectedItems.filter(t => t !== item);
+                        $('#' + type).val(newSelection).trigger('change');
+                    });
+                    tag.append(removeButton);
+                    container.append(tag);
+                });
+            }
+        });
+    </script>
 </body>
 </html>
