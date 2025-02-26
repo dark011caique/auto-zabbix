@@ -1,6 +1,7 @@
 from flask import Flask, request, render_template
 from zabbix_api import ZabbixAPI
 import paramiko
+import sys
 
 app = Flask(__name__)
 
@@ -21,6 +22,10 @@ def index():
 
 @app.route('/add_host', methods=['POST'])
 def add_host():
+    print(request.form)  # Verifica o que está sendo enviado pelo formulário
+    group_ids = request.form.getlist('group')
+    print("Grupos recebidos:", group_ids)  # Debug
+
     hostname = request.form['hostname']
     visible_name = request.form.get('visible_name', hostname)
     ip = request.form['ip']
@@ -45,8 +50,9 @@ def add_host():
         zapi.login(USERNAME, PASSWORD)
         print(f'Conectado na API do Zabbix, versão {zapi.api_version()}')
 
-        groups = [{"groupid": groupid} for groupid in group_ids]
         templates = [{"templateid": templateid} for templateid in template_ids]
+        groupids = ['2', '7']
+        groups = [{"groupid": groupid} for groupid in groupids]
 
         macros = []
         if macro_user:
@@ -80,11 +86,14 @@ def add_host():
             "proxy_hostid": proxy if proxy else None
         })
 
-        # Se o template de banco de dados foi selecionado, configurar ODBC
-        if "101" in template_ids:  # template "banco de dados"
-            configure_odbc(odbc_description, odbc_server, odbc_database, odbc_user, odbc_password, odbc_port)
+        odbc = configure_odbc(odbc_description, odbc_server, odbc_database, odbc_user, odbc_password, odbc_port) # Inicializa a variável odbc
 
-        print("Host criado com sucesso:", create_host)
+        # Se o template de banco de dados foi selecionado, configurar ODBC
+        # Verifica se o template com ID 101 está presente na lista de templates
+        if "101" in template_ids:
+            odbc = configure_odbc(odbc_description, odbc_server, odbc_database, odbc_user, odbc_password, odbc_port)
+
+        print("Host criado com sucesso:", create_host, odbc)
         return "Host cadastrado com sucesso!", 200
     except Exception as e:
         print("Erro ao criar host:", str(e))
@@ -118,6 +127,7 @@ def configure_odbc(odbc_description, odbc_server, odbc_database, odbc_user, odbc
         stdin.write(SSH_PASSWORD + "\n")
         stdin.flush()
 
+        # Aguarda a saída
         print(stdout.read().decode())
         print(stderr.read().decode())
         print("Monitoramento ODBC cadastrado com sucesso!")
@@ -127,5 +137,9 @@ def configure_odbc(odbc_description, odbc_server, odbc_database, odbc_user, odbc
         client.close()
         print("Conexão SSH encerrada.")
 
+
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    # Exibe no terminal (simulando como se estivesse no terminal)
+    print("Iniciando o script de criação de host...")
+    app.run(debug=True, use_reloader=False)
